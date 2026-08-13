@@ -2731,7 +2731,9 @@ export interface ChatToolDef {
 const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
 const THINKING_MODEL_MAX_OUTPUT_TOKENS = 32000;
 const THINKING_BY_DEFAULT_MODEL_RE = /^anthropic[:/]claude-[a-z0-9]+-5(?:[.-]|$)/i;
+const CLAUDE_CLI_5_MODEL_RE = /^claude-cli[:/]claude-[a-z0-9]+-5(?:[.-]|$)/i;
 function defaultMaxOutputTokens(modelStr: string | undefined): number {
+  if (modelStr && CLAUDE_CLI_5_MODEL_RE.test(modelStr)) return 64_000;
   return modelStr && THINKING_BY_DEFAULT_MODEL_RE.test(modelStr)
     ? THINKING_MODEL_MAX_OUTPUT_TOKENS
     : DEFAULT_MAX_OUTPUT_TOKENS;

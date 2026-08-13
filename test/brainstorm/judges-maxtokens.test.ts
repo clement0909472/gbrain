@@ -215,9 +215,9 @@ describe('current-generation model caps (Sonnet 5 / Fable 5 / Opus 4.8)', () => 
 });
 
 describe('claude-opus-5 cap', () => {
-  test('500 ideas on claude-opus-5: cap binds at its 32K entry (Opus-family convention), prefixed form included', () => {
+  test('500 ideas on claude-opus-5: cap binds at its live 64K limit, prefixed form included', () => {
     expect(computeJudgeMaxTokens(500, 'claude-opus-5')).toBe(ANTHROPIC_OUTPUT_CAPS['claude-opus-5']);
-    expect(ANTHROPIC_OUTPUT_CAPS['claude-opus-5']).toBe(32_000);
-    expect(computeJudgeMaxTokens(500, 'anthropic:claude-opus-5')).toBe(32_000);
+    expect(ANTHROPIC_OUTPUT_CAPS['claude-opus-5']).toBe(64_000);
+    expect(computeJudgeMaxTokens(500, 'anthropic:claude-opus-5')).toBe(64_000);
   });
 });

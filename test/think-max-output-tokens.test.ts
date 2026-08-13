@@ -18,6 +18,11 @@ describe('maxOutputTokensFor — thinking-default headroom', () => {
     expect(maxOutputTokensFor('anthropic/claude-sonnet-5')).toBe(16000); // slash form
   });
 
+  test('Claude CLI 5 uses the verified 64000 output ceiling', () => {
+    expect(maxOutputTokensFor('claude-cli:claude-opus-5')).toBe(64000);
+    expect(maxOutputTokensFor('claude-cli:claude-sonnet-5')).toBe(64000);
+  });
+
   test('OpenAI reasoning models (gpt-5 family, o-series) get 16000', () => {
     expect(maxOutputTokensFor('openai:gpt-5')).toBe(16000);
     expect(maxOutputTokensFor('openai:gpt-5.2')).toBe(16000);

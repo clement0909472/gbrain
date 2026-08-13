@@ -36,6 +36,10 @@ beforeAll(() => {
     '  *" --print "*) ;;',
     '  *) echo "missing --print in argv: $*" >&2; exit 64 ;;',
     'esac',
+    'case " $* " in',
+    '  *" --effort max "*) ;;',
+    '  *) echo "missing --effort max in argv: $*" >&2; exit 64 ;;',
+    'esac',
     `cat "${stubResponsePath}"`,
   ].join('\n');
   writeFileSync(stubBin, stub);
@@ -93,6 +97,10 @@ describe('claude-cli recipe registration', () => {
     expect(recipe!.touchpoints.chat!.models).toContain('claude-opus-5');
     expect(recipe!.touchpoints.chat!.models).toContain('claude-opus-4-8');
     expect(recipe!.touchpoints.chat!.models).toContain('claude-sonnet-5');
+    const maxContext = recipe!.touchpoints.chat!.max_context_tokens;
+    expect(typeof maxContext).toBe('function');
+    expect((maxContext as (modelId: string) => number)('claude-opus-5')).toBe(1_000_000);
+    expect((maxContext as (modelId: string) => number)('claude-haiku-4-5-20251001')).toBe(200_000);
     expect(recipe!.touchpoints.embedding).toBeUndefined();
     expect(recipe!.touchpoints.expansion).toBeUndefined();
   });

@@ -285,7 +285,8 @@ export interface ChatTouchpoint {
    * known to honor it.
    */
   supports_structured_outputs?: boolean;
-  max_context_tokens?: number;
+  /** Static for uniform catalogs, or per-model when one provider spans contexts. */
+  max_context_tokens?: number | ((modelId: string) => number);
   cost_per_1m_input_usd?: number;
   cost_per_1m_output_usd?: number;
   price_last_verified?: string;

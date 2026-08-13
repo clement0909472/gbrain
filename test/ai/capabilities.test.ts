@@ -24,6 +24,12 @@ describe('getProviderCapabilities (v0.38 Slice 1 — D6/D7 recipe-driven capabil
     expect(caps.maxContext).toBe(1000000); // Gemini 1.5 Pro
   });
 
+  it('uses the verified Claude CLI context per model', () => {
+    expect(getProviderCapabilities('claude-cli:claude-opus-5').maxContext).toBe(1_000_000);
+    expect(getProviderCapabilities('claude-cli:claude-sonnet-5').maxContext).toBe(1_000_000);
+    expect(getProviderCapabilities('claude-cli:claude-haiku-4-5-20251001').maxContext).toBe(200_000);
+  });
+
   it('marks OpenRouter OpenAI/Anthropic routes as cache-capable (per-model predicate)', () => {
     const openaiCaps = getProviderCapabilities('openrouter:openai/gpt-5.2');
     expect(openaiCaps.supportsToolCalling).toBe(true);

@@ -202,6 +202,7 @@ function runClaude(
       '--print',
       '--output-format', 'json',
       '--model', model,
+      '--effort', 'max',
       '--disable-slash-commands',
       // Agent isolation: this subprocess must behave like a raw LLM, not a
       // full Claude Code agent. `--tools ""` disables every built-in tool

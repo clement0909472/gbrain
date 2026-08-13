@@ -1,5 +1,10 @@
 import type { Recipe } from '../types.ts';
 
+const CLAUDE_CLI_1M_MODELS = new Set([
+  'claude-opus-5',
+  'claude-sonnet-5',
+]);
+
 /**
  * Claude via the local `claude` CLI binary, using its built-in OAuth session
  * (Claude Code / Claude Max subscription). No ANTHROPIC_API_KEY needed — the
@@ -49,7 +54,9 @@ export const claudeCli: Recipe = {
       // standard cache_control control plane. From the gateway's POV the
       // model does not support prompt caching.
       supports_prompt_cache: false,
-      max_context_tokens: 200000,
+      // Claude Code reports a 1M window for Claude 5. Older CLI models keep
+      // the conservative 200K capability until verified independently.
+      max_context_tokens: modelId => CLAUDE_CLI_1M_MODELS.has(modelId) ? 1_000_000 : 200_000,
       // Cost figures match the underlying Claude API tier, but the actual
       // bill is borne by the subscription. We report them for the budget
       // ledger's per-call accounting; operators on flat-rate subscriptions

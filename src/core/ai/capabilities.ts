@@ -91,6 +91,7 @@ export function getProviderCapabilities(modelString: string): ProviderCapabiliti
   // surfaces as the provider's own model_not_found at call time.
 
   const promptCache = chat.supports_prompt_cache;
+  const maxContext = chat.max_context_tokens;
 
   return {
     supportsToolCalling: chat.supports_tools === true,
@@ -105,7 +106,9 @@ export function getProviderCapabilities(modelString: string): ProviderCapabiliti
     // a `supports_thinking` field later without breaking this helper (it'll
     // just keep returning false until a recipe sets it).
     supportsThinking: false,
-    maxContext: chat.max_context_tokens ?? 128_000,
+    maxContext: typeof maxContext === 'function'
+      ? maxContext(parsed.modelId)
+      : maxContext ?? 128_000,
   };
 }
 
