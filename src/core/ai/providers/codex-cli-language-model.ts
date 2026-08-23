@@ -59,6 +59,13 @@ import type {
 function codexBin(): string {
   return process.env.GBRAIN_CODEX_CLI_BIN ?? 'codex';
 }
+
+function reasoningEffort(model: string): 'medium' | 'high' | 'max' {
+  if (model.endsWith('-sol')) return 'max';
+  if (model.endsWith('-terra')) return 'high';
+  return 'medium';
+}
+
 const CODEX_CWD = join(tmpdir(), `gbrain-codex-cli-cwd-${process.pid}`);
 let cwdEnsured = false;
 function ensureCleanCwd(): string {
@@ -233,6 +240,7 @@ function runCodex(
       '--skip-git-repo-check',
       '-C', ensureCleanCwd(),
       '-m', model,
+      '-c', `model_reasoning_effort=${reasoningEffort(model)}`,
       '-o', outFile,
       // Read the prompt from stdin — argv has a hard size ceiling and
       // subagent prompts (context + tool specs) routinely exceed it.

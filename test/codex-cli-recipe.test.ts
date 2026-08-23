@@ -10,7 +10,7 @@
  * subscription required.
  *
  * Recipe registration is also smoke-tested: getRecipe('codex-cli')
- * returns a chat-only Recipe with the right model list.
+ * returns a Recipe with the right model list.
  *
  * Env isolation: GBRAIN_CODEX_CLI_BIN is set per-test via withEnv(),
  * NOT in beforeAll. The provider reads the env var at spawn time so
@@ -80,7 +80,7 @@ function userMessage(text: string): LanguageModelV2CallOptions['prompt'][number]
 }
 
 describe('codex-cli recipe registration', () => {
-  test('getRecipe returns chat-only Recipe with the documented models', async () => {
+  test('getRecipe returns the documented subscription models', async () => {
     const { getRecipe } = await import('../src/core/ai/recipes/index.ts');
     const recipe = getRecipe('codex-cli');
     expect(recipe).toBeDefined();
@@ -89,9 +89,10 @@ describe('codex-cli recipe registration', () => {
     expect(recipe!.touchpoints.chat).toBeDefined();
     expect(recipe!.touchpoints.chat!.supports_tools).toBe(true);
     expect(recipe!.touchpoints.chat!.supports_subagent_loop).toBe(true);
+    expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-luna');
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-terra');
     expect(recipe!.touchpoints.embedding).toBeUndefined();
-    expect(recipe!.touchpoints.expansion).toBeUndefined();
+    expect(recipe!.touchpoints.expansion!.models).toContain('gpt-5.6-luna');
   });
 
   test('recipe aliases map short names to canonical model ids', async () => {
@@ -351,6 +352,7 @@ describe('codex-cli LanguageModel — context isolation', () => {
         expect(argv).toContain('--skip-git-repo-check');
         expect(argv).toContain('-m');
         expect(argv).toContain('gpt-5.6-terra');
+        expect(argv).toContain('model_reasoning_effort=high');
         // Prompt arrives on stdin (argv has a hard size ceiling).
         expect(argv[argv.length - 1]).toBe('-');
         expect(cwd).toMatch(/gbrain-codex-cli-cwd-\d+$/);
