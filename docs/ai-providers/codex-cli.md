@@ -96,5 +96,4 @@ Tool use rides the same prompt-instructed
 `<use_tools>[{id,name,input}]</use_tools>` protocol the `claude-cli` provider
 teaches.
 
-The adapter maps Luna to medium reasoning effort, Terra to high, and Sol to
-max.
+The adapter maps Luna to medium reasoning effort, and Terra and Sol to high.
