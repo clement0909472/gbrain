@@ -330,7 +330,7 @@ describe('codex-cli LanguageModel — context isolation', () => {
 
       try {
         const { CodexCliLanguageModel } = await import('../src/core/ai/providers/codex-cli-language-model.ts');
-        const model = new CodexCliLanguageModel('gpt-5.6-terra');
+        const model = new CodexCliLanguageModel('gpt-5.6-sol');
         await model.doGenerate({
           prompt: [
             { role: 'system', content: 'You are gbrain subagent.' },
@@ -351,7 +351,7 @@ describe('codex-cli LanguageModel — context isolation', () => {
         expect(argv).toContain('read-only');
         expect(argv).toContain('--skip-git-repo-check');
         expect(argv).toContain('-m');
-        expect(argv).toContain('gpt-5.6-terra');
+        expect(argv).toContain('gpt-5.6-sol');
         expect(argv).toContain('model_reasoning_effort=high');
         // Prompt arrives on stdin (argv has a hard size ceiling).
         expect(argv[argv.length - 1]).toBe('-');

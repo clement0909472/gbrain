@@ -60,9 +60,8 @@ function codexBin(): string {
   return process.env.GBRAIN_CODEX_CLI_BIN ?? 'codex';
 }
 
-function reasoningEffort(model: string): 'medium' | 'high' | 'max' {
-  if (model.endsWith('-sol')) return 'max';
-  if (model.endsWith('-terra')) return 'high';
+function reasoningEffort(model: string): 'medium' | 'high' {
+  if (model.endsWith('-sol') || model.endsWith('-terra')) return 'high';
   return 'medium';
 }
 
