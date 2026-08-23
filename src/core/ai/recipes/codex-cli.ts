@@ -1,5 +1,7 @@
 import type { Recipe } from '../types.ts';
 
+const MODELS = ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol'];
+
 /**
  * GPT via the local `codex` CLI binary, using its built-in ChatGPT OAuth
  * session (ChatGPT Plus/Pro subscription). No OPENAI_API_KEY needed — the
@@ -12,8 +14,7 @@ import type { Recipe } from '../types.ts';
  * call: `openai:gpt-5.6` (API key + per-token billing) vs
  * `codex-cli:gpt-5.6-terra` (OAuth subscription, no API key).
  *
- * Chat-only. Embeddings still route through openai/google/voyage the way
- * the `claude-cli` recipe documents.
+ * Chat and expansion only. Embeddings still route through openai/google/voyage.
  *
  * Auth: `auth_env.required: []` because the CLI handles auth itself. The
  * `codex` binary on PATH (or `GBRAIN_CODEX_CLI_BIN`) IS the auth surface;
@@ -32,12 +33,14 @@ export const codexCli: Recipe = {
     required: [],
   },
   touchpoints: {
-    // No embedding or expansion touchpoints — chat-only.
+    expansion: {
+      models: [...MODELS],
+      cost_per_1m_tokens_usd: 0,
+      price_last_verified: '2026-08-23',
+      default_timeout_ms: 30_000,
+    },
     chat: {
-      models: [
-        'gpt-5.6-terra',
-        'gpt-5.6-sol',
-      ],
+      models: [...MODELS],
       supports_tools: true,
       supports_subagent_loop: true,
       // The CLI handles caching internally and does not surface it via the
@@ -52,11 +55,13 @@ export const codexCli: Recipe = {
       cost_per_1m_input_usd: 1.25,
       cost_per_1m_output_usd: 10.0,
       price_last_verified: '2026-07-29',
+      default_timeout_ms: 30_000,
     },
   },
   // Friendly aliases so config strings stay short. Verified against
   // `codex exec -m <id>` on Codex CLI as of 2026-07-29.
   aliases: {
+    'luna': 'gpt-5.6-luna',
     'terra': 'gpt-5.6-terra',
     'sol': 'gpt-5.6-sol',
   },

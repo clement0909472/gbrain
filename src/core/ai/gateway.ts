@@ -2756,7 +2756,7 @@ function instantiateExpansion(recipe: Recipe, modelId: string, cfg: AIGatewayCon
     }
     case 'codex-cli': {
       // Same subprocess pattern as claude-cli: the Codex CLI owns auth
-      // (ChatGPT OAuth session); chat-only recipe, no expansion touchpoint.
+      // (ChatGPT OAuth session).
       const { CodexCliLanguageModel } = require('./providers/codex-cli-language-model.ts');
       return new CodexCliLanguageModel(modelId);
     }
