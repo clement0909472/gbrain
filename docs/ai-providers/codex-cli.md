@@ -1,17 +1,17 @@
 # codex-cli — GPT chat via the Codex CLI OAuth subscription
 
-The `codex-cli` recipe routes `gateway.chat` / `gateway.toolLoop` through the
+The `codex-cli` recipe routes expansion, `gateway.chat`, and `gateway.toolLoop` through the
 local `codex` CLI's ChatGPT OAuth session, so a ChatGPT Plus/Pro subscription
 covers the calls instead of per-token `OPENAI_API_KEY` billing. It is the GPT
 sibling of the `claude-cli` recipe.
 
 ```bash
-gbrain config set chat_model codex-cli:gpt-5.6-terra
+gbrain config set chat_model codex-cli:gpt-5.6-sol
 # or behind claude-cli in a fallback chain:
 gbrain config set chat_fallback_chain '["codex-cli:gpt-5.6-terra"]'
 ```
 
-`codex-cli:gpt-5.6-terra` (subscription) sits alongside `openai:gpt-5.6`
+`codex-cli:gpt-5.6-sol` (subscription) sits alongside `openai:gpt-5.6`
 (API key, per-token billing) the same way `claude-cli:*` sits alongside
 `anthropic:*`. Token usage is not reported on the CLI's output channel, so
 usage fields are undefined and the budget ledger treats these calls as
@@ -24,7 +24,7 @@ nominal.
 ### CLI version
 
 Needs a `codex` new enough to have `--ignore-user-config` and the
-`gpt-5.6-terra` / `gpt-5.6-sol` model ids — 0.145.0 or later. Older builds
+`gpt-5.6-luna` / `gpt-5.6-terra` / `gpt-5.6-sol` model ids — 0.145.0 or later. Older builds
 fail in confusing ways: the Ubuntu snap's stable channel lagged at 0.114.0,
 whose default `gpt-5.3-codex` is not available under ChatGPT-account auth at
 all (`{"detail":"The 'gpt-5.3-codex' model is not supported when using Codex
@@ -95,3 +95,6 @@ Codex agent:
 Tool use rides the same prompt-instructed
 `<use_tools>[{id,name,input}]</use_tools>` protocol the `claude-cli` provider
 teaches.
+
+The adapter maps Luna to medium reasoning effort, Terra to high, and Sol to
+max.
