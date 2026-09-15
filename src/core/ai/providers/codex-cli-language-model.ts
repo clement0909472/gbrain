@@ -61,7 +61,7 @@ function codexBin(): string {
 }
 
 function reasoningEffort(model: string): 'medium' | 'high' {
-  if (model.endsWith('-sol') || model.endsWith('-terra')) return 'high';
+  if (model.endsWith('-sol') || model.endsWith('-terra') || model === 'gpt-6-astra') return 'high';
   return 'medium';
 }
 
@@ -240,6 +240,7 @@ function runCodex(
       '-C', ensureCleanCwd(),
       '-m', model,
       '-c', `model_reasoning_effort=${reasoningEffort(model)}`,
+      '-c', 'forced_login_method="chatgpt"',
       '-o', outFile,
       // Read the prompt from stdin — argv has a hard size ceiling and
       // subagent prompts (context + tool specs) routinely exceed it.
@@ -252,6 +253,7 @@ function runCodex(
     const env = { ...process.env };
     delete env.OPENAI_API_KEY;
     delete env.OPENAI_BASE_URL;
+    delete env.CODEX_API_KEY;
     const child = spawn(codexBin(), args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: ensureCleanCwd(),

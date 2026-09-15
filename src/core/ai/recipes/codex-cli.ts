@@ -1,6 +1,6 @@
 import type { Recipe } from '../types.ts';
 
-const MODELS = ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol'];
+const MODELS = ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra'];
 
 /**
  * GPT via the local `codex` CLI binary, using its built-in ChatGPT OAuth
@@ -64,6 +64,7 @@ export const codexCli: Recipe = {
     'luna': 'gpt-5.6-luna',
     'terra': 'gpt-5.6-terra',
     'sol': 'gpt-5.6-sol',
+    'astra': 'gpt-6-astra',
   },
   setup_hint:
     'Install the Codex CLI (`codex`) and run `codex login` once. ' +

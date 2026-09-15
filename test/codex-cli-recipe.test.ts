@@ -91,6 +91,7 @@ describe('codex-cli recipe registration', () => {
     expect(recipe!.touchpoints.chat!.supports_subagent_loop).toBe(true);
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-luna');
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-terra');
+    expect(recipe!.touchpoints.chat!.models).toContain('gpt-6-astra');
     expect(recipe!.touchpoints.embedding).toBeUndefined();
     expect(recipe!.touchpoints.expansion!.models).toContain('gpt-5.6-luna');
   });
@@ -100,6 +101,7 @@ describe('codex-cli recipe registration', () => {
     const recipe = getRecipe('codex-cli');
     expect(recipe!.aliases!['terra']).toBe('gpt-5.6-terra');
     expect(recipe!.aliases!['sol']).toBe('gpt-5.6-sol');
+    expect(recipe!.aliases!['astra']).toBe('gpt-6-astra');
   });
 });
 
@@ -306,7 +308,12 @@ describe('codex-cli LanguageModel — tool use', () => {
 });
 
 describe('codex-cli LanguageModel — context isolation', () => {
-  test('argv carries the isolation flags, stdin marker, and system section; cwd is the dedicated tmpdir', async () => {
+  test.each([
+    ['gpt-5.6-luna', 'medium'],
+    ['gpt-5.6-terra', 'high'],
+    ['gpt-5.6-sol', 'high'],
+    ['gpt-6-astra', 'high'],
+  ])('argv isolates %s at %s effort with ChatGPT auth', async (modelId, effort) => {
     await withStubEnv(async () => {
       const argvLog = join(stubDir, 'argv.log');
       const cwdLog = join(stubDir, 'cwd.log');
@@ -330,7 +337,7 @@ describe('codex-cli LanguageModel — context isolation', () => {
 
       try {
         const { CodexCliLanguageModel } = await import('../src/core/ai/providers/codex-cli-language-model.ts');
-        const model = new CodexCliLanguageModel('gpt-5.6-sol');
+        const model = new CodexCliLanguageModel(modelId);
         await model.doGenerate({
           prompt: [
             { role: 'system', content: 'You are gbrain subagent.' },
@@ -351,8 +358,9 @@ describe('codex-cli LanguageModel — context isolation', () => {
         expect(argv).toContain('read-only');
         expect(argv).toContain('--skip-git-repo-check');
         expect(argv).toContain('-m');
-        expect(argv).toContain('gpt-5.6-sol');
-        expect(argv).toContain('model_reasoning_effort=high');
+        expect(argv).toContain(modelId);
+        expect(argv).toContain(`model_reasoning_effort=${effort}`);
+        expect(argv).toContain('forced_login_method="chatgpt"');
         // Prompt arrives on stdin (argv has a hard size ceiling).
         expect(argv[argv.length - 1]).toBe('-');
         expect(cwd).toMatch(/gbrain-codex-cli-cwd-\d+$/);
@@ -366,18 +374,19 @@ describe('codex-cli LanguageModel — context isolation', () => {
     });
   });
 
-  test('scrubs OPENAI_* credentials from the child env (subscription-only auth)', async () => {
+  test('scrubs API credentials from the child env (subscription-only auth)', async () => {
     await withStubEnv(async () => {
       await withEnv(
         {
           OPENAI_API_KEY: 'sk-should-never-leak',
           OPENAI_BASE_URL: 'https://proxy.should.never.leak',
+          CODEX_API_KEY: 'sk-codex-should-never-leak',
         },
         async () => {
           const envLog = join(stubDir, 'env.log');
           const envStub = [
             '#!/bin/sh',
-            `printf "key=%s\\nbase=%s\\n" "\${OPENAI_API_KEY:-UNSET}" "\${OPENAI_BASE_URL:-UNSET}" > "${envLog}"`,
+            `printf "key=%s\\nbase=%s\\ncodex=%s\\n" "\${OPENAI_API_KEY:-UNSET}" "\${OPENAI_BASE_URL:-UNSET}" "\${CODEX_API_KEY:-UNSET}" > "${envLog}"`,
             'cat > /dev/null',
             'out=""',
             'prev=""',
@@ -402,6 +411,7 @@ describe('codex-cli LanguageModel — context isolation', () => {
             const seen = fs.readFileSync(envLog, 'utf8');
             expect(seen).toContain('key=UNSET');
             expect(seen).toContain('base=UNSET');
+            expect(seen).toContain('codex=UNSET');
           } finally {
             restoreFastStub();
           }
