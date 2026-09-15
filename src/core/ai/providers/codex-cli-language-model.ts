@@ -236,12 +236,19 @@ function runCodex(
       // depth. `-C` + `--skip-git-repo-check` keep AGENTS.md discovery and
       // the repo probe out of a clean tmpdir.
       '--ignore-user-config',
+      // Qualified extraction must not archive raw source prompts as Codex sessions.
+      '--ephemeral',
+      '--json',
       '--sandbox', 'read-only',
       '--skip-git-repo-check',
       '-C', ensureCleanCwd(),
       '-m', model === 'gpt-5.6-luna@max' ? 'gpt-5.6-luna' : model,
       '-c', `model_reasoning_effort=${reasoningEffort(model)}`,
+      // Local catalog verified 2026-09-15: 872k usable maximum (not 1M input).
+      ...(model === 'gpt-5.6-luna@max' ? ['-c', 'model_context_window=872000'] : []),
       '-c', 'forced_login_method="chatgpt"',
+      '-c', 'project_doc_max_bytes=0',
+      '-c', 'developer_instructions="Perform only the supplied text transformation. Do not invoke native Codex tools, browse, read files, or write memory. If the prompt specifies a textual tool-use protocol, emit that protocol as text. Return only the requested final response."',
       '-o', outFile,
       // Read the prompt from stdin — argv has a hard size ceiling and
       // subagent prompts (context + tool specs) routinely exceed it.
@@ -268,7 +275,12 @@ function runCodex(
 
     const onAbort = () => {
       child.kill('SIGTERM');
-      reject(new Error('codex-cli adapter aborted'));
+      // Only event kinds, never transcript text or internal reasoning, in timeout diagnostics.
+      const events = stdout.split('\n').flatMap(line => {
+        try { const e = JSON.parse(line); return [e.type + (e.item?.type ? ':' + e.item.type : '')]; }
+        catch { return []; }
+      }).slice(-5).join(',');
+      reject(new Error(`codex-cli adapter aborted; recent events: ${events || 'none'}`));
     };
     if (signal) {
       if (signal.aborted) {
@@ -296,7 +308,12 @@ function runCodex(
     child.on('close', code => {
       if (signal) signal.removeEventListener('abort', onAbort);
       if (code !== 0) {
-        const detail = stderr.trim() || stdout.trim();
+        // JSON stdout can contain source text and reasoning: expose errors only.
+        const errors = stdout.split('\n').flatMap(line => {
+          try { const e = JSON.parse(line); return e.type === 'error' ? [String(e.message ?? e.error?.message ?? 'CLI error')] : []; }
+          catch { return []; }
+        });
+        const detail = errors.join('\n') || stderr.split('\n').filter(line => !line.includes('state db discrepancy')).slice(-8).join('\n').trim() || 'CLI failed without an error message';
         reject(new Error(`codex-cli exited ${code}: ${detail}${cwdAccessHint(detail)}`));
         return;
       }

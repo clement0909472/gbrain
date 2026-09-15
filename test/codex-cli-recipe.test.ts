@@ -358,6 +358,9 @@ describe('codex-cli LanguageModel — context isolation', () => {
         // Agent-isolation hardening: no user config (MCP servers, model
         // defaults), read-only sandbox, clean cwd, no repo probe.
         expect(argv).toContain('--ignore-user-config');
+        expect(argv).toContain('--ephemeral');
+        expect(argv).toContain('project_doc_max_bytes=0');
+        expect(argv.includes('model_context_window=872000')).toBe(modelId === 'gpt-5.6-luna@max');
         expect(argv).toContain('--sandbox');
         expect(argv).toContain('read-only');
         expect(argv).toContain('--skip-git-repo-check');
@@ -470,6 +473,21 @@ describe('codex-cli LanguageModel — abort + error surfaces', () => {
       } finally {
         restoreFastStub();
       }
+    });
+  });
+
+  test('does not expose JSON source or reasoning events on failure', async () => {
+    await withStubEnv(async () => {
+      writeFileSync(stubBin, ['#!/bin/sh', 'cat > /dev/null',
+        `echo '{"type":"item.completed","item":{"type":"reasoning","text":"PRIVATE_SOURCE"}}'`,
+        `echo '{"type":"error","message":"capacity unavailable"}'`, 'exit 1'].join('\n'));
+      chmodSync(stubBin, 0o755);
+      try {
+        const { CodexCliLanguageModel } = await import('../src/core/ai/providers/codex-cli-language-model.ts');
+        const result = await new CodexCliLanguageModel('gpt-5.6-luna').doGenerate({ prompt: [userMessage('x')] } as LanguageModelV2CallOptions).catch(error => error);
+        expect(String(result)).toContain('capacity unavailable');
+        expect(String(result)).not.toContain('PRIVATE_SOURCE');
+      } finally { restoreFastStub(); }
     });
   });
 
