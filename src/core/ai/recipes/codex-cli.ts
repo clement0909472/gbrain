@@ -40,7 +40,8 @@ export const codexCli: Recipe = {
       default_timeout_ms: 30_000,
     },
     chat: {
-      models: [...MODELS],
+      // @max is a local effort profile, not an OpenAI model ID.
+      models: [...MODELS, 'gpt-5.6-luna@max'],
       supports_tools: true,
       supports_subagent_loop: true,
       // The CLI handles caching internally and does not surface it via the
@@ -62,6 +63,7 @@ export const codexCli: Recipe = {
   // `codex exec -m <id>` on Codex CLI as of 2026-07-29.
   aliases: {
     'luna': 'gpt-5.6-luna',
+    'luna-max': 'gpt-5.6-luna@max',
     'terra': 'gpt-5.6-terra',
     'sol': 'gpt-5.6-sol',
     'astra': 'gpt-6-astra',

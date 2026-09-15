@@ -60,7 +60,8 @@ function codexBin(): string {
   return process.env.GBRAIN_CODEX_CLI_BIN ?? 'codex';
 }
 
-function reasoningEffort(model: string): 'medium' | 'high' {
+function reasoningEffort(model: string): 'medium' | 'high' | 'max' {
+  if (model === 'gpt-5.6-luna@max') return 'max';
   if (model.endsWith('-sol') || model.endsWith('-terra') || model === 'gpt-6-astra') return 'high';
   return 'medium';
 }
@@ -238,7 +239,7 @@ function runCodex(
       '--sandbox', 'read-only',
       '--skip-git-repo-check',
       '-C', ensureCleanCwd(),
-      '-m', model,
+      '-m', model === 'gpt-5.6-luna@max' ? 'gpt-5.6-luna' : model,
       '-c', `model_reasoning_effort=${reasoningEffort(model)}`,
       '-c', 'forced_login_method="chatgpt"',
       '-o', outFile,

@@ -92,6 +92,7 @@ describe('codex-cli recipe registration', () => {
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-luna');
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-terra');
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-6-astra');
+    expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-luna@max');
     expect(recipe!.touchpoints.embedding).toBeUndefined();
     expect(recipe!.touchpoints.expansion!.models).toContain('gpt-5.6-luna');
   });
@@ -102,6 +103,8 @@ describe('codex-cli recipe registration', () => {
     expect(recipe!.aliases!['terra']).toBe('gpt-5.6-terra');
     expect(recipe!.aliases!['sol']).toBe('gpt-5.6-sol');
     expect(recipe!.aliases!['astra']).toBe('gpt-6-astra');
+    const { resolveRecipe } = await import('../src/core/ai/model-resolver.ts');
+    expect(resolveRecipe('codex-cli:luna-max').parsed.modelId).toBe('gpt-5.6-luna@max');
   });
 });
 
@@ -309,11 +312,12 @@ describe('codex-cli LanguageModel — tool use', () => {
 
 describe('codex-cli LanguageModel — context isolation', () => {
   test.each([
-    ['gpt-5.6-luna', 'medium'],
-    ['gpt-5.6-terra', 'high'],
-    ['gpt-5.6-sol', 'high'],
-    ['gpt-6-astra', 'high'],
-  ])('argv isolates %s at %s effort with ChatGPT auth', async (modelId, effort) => {
+    ['gpt-5.6-luna', 'gpt-5.6-luna', 'medium'],
+    ['gpt-5.6-luna@max', 'gpt-5.6-luna', 'max'],
+    ['gpt-5.6-terra', 'gpt-5.6-terra', 'high'],
+    ['gpt-5.6-sol', 'gpt-5.6-sol', 'high'],
+    ['gpt-6-astra', 'gpt-6-astra', 'high'],
+  ])('argv routes %s to %s at %s effort with ChatGPT auth', async (modelId, cliModel, effort) => {
     await withStubEnv(async () => {
       const argvLog = join(stubDir, 'argv.log');
       const cwdLog = join(stubDir, 'cwd.log');
@@ -358,7 +362,7 @@ describe('codex-cli LanguageModel — context isolation', () => {
         expect(argv).toContain('read-only');
         expect(argv).toContain('--skip-git-repo-check');
         expect(argv).toContain('-m');
-        expect(argv).toContain(modelId);
+        expect(argv[argv.indexOf('-m') + 1]).toBe(cliModel);
         expect(argv).toContain(`model_reasoning_effort=${effort}`);
         expect(argv).toContain('forced_login_method="chatgpt"');
         // Prompt arrives on stdin (argv has a hard size ceiling).
