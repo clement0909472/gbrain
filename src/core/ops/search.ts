@@ -19,7 +19,9 @@ import {
 import { expandQuery } from '../search/expansion.ts';
 import { dedupResults } from '../search/dedup.ts';
 import { markKeywordHits } from '../search/evidence.ts';
-import { captureEvalCandidate, isEvalCaptureEnabled, isEvalScrubEnabled } from '../eval-capture.ts';
+import { captureEvalCandidate, isEvalCaptureEnabled, isEvalScrubEnabled, replayParams } from '../eval-capture.ts';
+import { getExpansionModel, getEmbeddingModel, getEmbeddingDimensions, getRerankerModel } from '../ai/gateway.ts';
+import { reasoningEffort } from '../ai/providers/codex-cli-language-model.ts';
 import type { HybridSearchMeta } from '../types.ts';
 import { bumpLastRetrievedAt } from '../last-retrieved.ts';
 import { applySnippetCap, DEFAULT_AGENT_SNIPPET_CHARS } from '../search/snippet-cap.ts';
@@ -53,6 +55,20 @@ async function resolveEffectiveLimit(ctx: OperationContext, p: Record<string, un
   const modeInput = await loadSearchModeConfig(ctx.engine);
   const resolved = resolveSearchMode({ mode: perCallMode ?? modeInput.mode, overrides: modeInput.overrides });
   return (p.limit as number) || resolved.searchLimit;
+}
+
+async function replayContext(ctx: OperationContext, p: Record<string, unknown>, scope: Record<string, unknown>, excludePrivate: boolean, snippetCap: number) {
+  if (!isEvalCaptureEnabled(ctx.config) || !process.env.GBRAIN_EVAL_REPLAY_LOG) return undefined;
+  try {
+    const modeInput = await loadSearchModeConfig(ctx.engine);
+    const mode = resolveSearchMode({mode: resolvePerCallMode(ctx, p.mode) ?? modeInput.mode, overrides: modeInput.overrides});
+    const expansion = getExpansionModel();
+    return {request: replayParams(p), effective: {scope, excludePrivate, requireSafeChunks: ctx.remote !== false,
+      takesHoldersAllowList: readHolders(ctx), snippetCap, mode,
+      limit: (p.limit as number) || mode.searchLimit, offset: (p.offset as number) || 0},
+      models: {expansion, expansion_effort: expansion.startsWith('codex-cli:') ? reasoningEffort(expansion.slice(10)) : null,
+        embedding: getEmbeddingModel(), embedding_dimensions: getEmbeddingDimensions(), reranker: getRerankerModel() ?? mode.reranker_model}};
+  } catch { return {request: replayParams(p), metadata_incomplete: true}; }
 }
 
 // --- Search ---
@@ -273,6 +289,8 @@ const search: Operation = {
     // hybrid `search` contract (privacy/cost: no query text to an embedding
     // provider). Defaults to cheap-hybrid (D4/D15).
     const keywordOnly = (await ctx.engine.getConfig('search.mcp_keyword_only')) === 'true';
+    const replay = await replayContext(ctx, p, scope, excludePrivate, snippetCap);
+    if (replay?.effective) replay.effective.limit = limit;
 
     if (keywordOnly) {
       const raw = await ctx.engine.searchKeyword(queryText, { limit, offset, excludePrivate, requireSafeChunks: ctx.remote !== false, ...(types ? { types } : {}), ...scope });
@@ -291,7 +309,7 @@ const search: Operation = {
       // truth boost — but the provenance marker must still surface).
       await stampUnverifiedExtractions(ctx.engine, results, { ...scope, excludePrivate });
       bumpLastRetrievedAt(ctx.engine, results.map((r) => r.page_id));
-      maybeCaptureSearch(ctx, queryText, results, Date.now() - startedAt, false);
+      maybeCaptureSearch(ctx, queryText, results, Date.now() - startedAt, false, null, {...replay, keyword_only: true});
       ctx.emitResponseMeta?.('retrieval', await buildRetrievalResponseMeta(ctx, scope, queryText, results, null, { conceptHint: true }));
       // #3800: cap AFTER capture/meta so eval + cache see the real payload.
       return applySnippetCap(results, snippetCap);
@@ -318,7 +336,7 @@ const search: Operation = {
     stampDeepResearchIds(results);
     const latency_ms = Date.now() - startedAt;
     bumpLastRetrievedAt(ctx.engine, results.map((r) => r.page_id));
-    maybeCaptureSearch(ctx, queryText, results, latency_ms, true, capturedMeta);
+    maybeCaptureSearch(ctx, queryText, results, latency_ms, true, capturedMeta, {...replay, keyword_only: false});
     ctx.emitResponseMeta?.('retrieval', await buildRetrievalResponseMeta(ctx, scope, queryText, results, capturedMeta, { conceptHint: true }));
     // #3800: cap AFTER capture/meta so eval + cache see the real payload.
     return applySnippetCap(results, snippetCap);
@@ -531,6 +549,13 @@ const query: Operation = {
     // token budget and intent weighting apply at the operation boundary.
     // Semantic cache reuse is suspended in the wrapper.
     // (#1663: `let` — the CRAG gate below may swap in an escalated run.)
+    const replay = await replayContext(ctx, p, querySourceScope, excludePrivate, snippetCap);
+    const expansionRuns: string[][] = [];
+    const tracedExpand: typeof expandQuery = async (q) => {
+      const variants = await expandQuery(q);
+      expansionRuns.push(variants);
+      return variants;
+    };
     let results = await hybridSearchCached(ctx.engine, queryText, {
       // #4356 — was a hard `|| 20`, independent of the mode-resolution
       // hybridSearchCached applies when `limit` is falsy (undefined OR 0):
@@ -546,7 +571,7 @@ const query: Operation = {
       requireSafeChunks: ctx.remote !== false,
       takesHoldersAllowList: readHolders(ctx),
       expansion: expand,
-      expandFn: expand ? expandQuery : undefined,
+      expandFn: expand ? tracedExpand : undefined,
       // T4/D5 — per-call mode (local/trusted only; remote ignored).
       ...((): { mode?: string } => { const m = resolvePerCallMode(ctx, p.mode); return m ? { mode: m } : {}; })(),
       detail,
@@ -632,7 +657,7 @@ const query: Operation = {
             limit: Math.max(effectiveLimit, 50),
             offset: (p.offset as number) || 0,
             expansion: true,
-            expandFn: expandQuery,
+            expandFn: tracedExpand,
             relationalRetrieval: true,
             autocut: false,
             detail,
@@ -728,6 +753,7 @@ const query: Operation = {
         ctx.engine,
         {
           tool_name: 'query',
+          replay: {...replay, expansion_runs: expansionRuns, crag_escalated: crag.escalated ?? false},
           query: queryText,
           results,
           meta,

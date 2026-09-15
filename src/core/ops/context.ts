@@ -953,12 +953,14 @@ export function maybeCaptureSearch(
   latency_ms: number,
   vectorEnabled: boolean,
   meta?: HybridSearchMeta | null,
+  replay?: Record<string, unknown>,
 ): void {
   if (!isEvalCaptureEnabled(ctx.config)) return;
   void captureEvalCandidate(
     ctx.engine,
     {
       tool_name: 'search',
+      replay,
       query: queryText,
       results,
       meta: meta ?? { vector_enabled: vectorEnabled, detail_resolved: null, expansion_applied: false },

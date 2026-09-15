@@ -60,7 +60,7 @@ function codexBin(): string {
   return process.env.GBRAIN_CODEX_CLI_BIN ?? 'codex';
 }
 
-function reasoningEffort(model: string): 'medium' | 'high' | 'max' {
+export function reasoningEffort(model: string): 'medium' | 'high' | 'max' {
   if (model === 'gpt-5.6-luna@max') return 'max';
   if (model.endsWith('-sol') || model.endsWith('-terra') || model === 'gpt-6-astra') return 'high';
   return 'medium';

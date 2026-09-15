@@ -9,6 +9,9 @@
  */
 
 import { describe, expect, mock, test } from 'bun:test';
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   buildEvalCandidateInput,
   captureEvalCandidate,
@@ -16,9 +19,20 @@ import {
   isEvalCaptureEnabled,
   isEvalScrubEnabled,
   type CaptureContext,
+  replayParams,
+  scrubReplay,
 } from '../src/core/eval-capture.ts';
 import type { BrainEngine } from '../src/core/engine.ts';
 import type { SearchResult } from '../src/core/types.ts';
+
+test('replay preserves filters, scrubs variants and excludes payloads and credentials', () => {
+  const params = replayParams({limit: 3, source_id: 'default', types: ['diary'], expand: false,
+    image: 'private-image', query: 'not duplicated', api_key: 'secret'});
+  expect(params).toEqual({limit: 3, source_id: 'default', types: ['diary'], expand: false});
+  const trace = scrubReplay({request: params, expansion_runs: [['email alice@example.com']]});
+  expect(JSON.stringify(trace)).not.toContain('alice@example.com');
+  expect(JSON.stringify(trace)).toContain('diary');
+});
 
 function makeResult(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
@@ -175,6 +189,33 @@ describe('captureEvalCandidate — best-effort failure handling', () => {
     await expect(captureEvalCandidate(engine, makeCtx())).resolves.toBeUndefined();
     expect((engine.logEvalCandidate as unknown as { mock: { calls: unknown[] } }).mock.calls).toHaveLength(1);
     expect((engine.logEvalCaptureFailure as unknown as { mock: { calls: unknown[] } }).mock.calls).toHaveLength(0);
+  });
+
+  test('local replay joins native ID, protects the file and reports a failed append', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gbrain-replay-test-'));
+    const previous = process.env.GBRAIN_EVAL_REPLAY_LOG;
+    const engine = makeMockEngine();
+    const ctx = makeCtx({replay: {request: {types: ['diary']}, expansion_runs: [['alice@example.com']]}});
+    try {
+      const path = join(dir, 'replay.jsonl');
+      process.env.GBRAIN_EVAL_REPLAY_LOG = path;
+      await captureEvalCandidate(engine, ctx);
+      const raw = readFileSync(path, 'utf8');
+      const row = JSON.parse(raw);
+      expect(row.candidate_id).toBe(1);
+      expect(row.replay.request.types).toEqual(['diary']);
+      expect(row.remote).toBe(true);
+      expect(raw).not.toContain('alice@example.com');
+      expect(row).not.toHaveProperty('results');
+      expect(statSync(path).mode & 0o777).toBe(0o600);
+      process.env.GBRAIN_EVAL_REPLAY_LOG = dir;
+      await expect(captureEvalCandidate(engine, ctx)).resolves.toBeUndefined();
+      expect(engine.logEvalCaptureFailure).toHaveBeenCalledWith('other');
+    } finally {
+      if (previous === undefined) delete process.env.GBRAIN_EVAL_REPLAY_LOG;
+      else process.env.GBRAIN_EVAL_REPLAY_LOG = previous;
+      rmSync(dir, {recursive: true});
+    }
   });
 
   test('DB error: routes to logEvalCaptureFailure with classified reason, does not throw', async () => {

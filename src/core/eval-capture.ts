@@ -44,6 +44,8 @@ import type {
 import type { GBrainConfig } from './config.ts';
 import { scrubPii } from './eval-capture-scrub.ts';
 import { registerBackgroundWorkDrainer } from './background-work.ts';
+import { appendFileSync, chmodSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 // HybridSearchMeta is canonical in src/core/types.ts and exported via the
 // public `gbrain/types` subpath. Surfaced from hybridSearch via the
@@ -52,6 +54,8 @@ export type { HybridSearchMeta };
 
 /** Context needed to build a capture row. Bundled so op handlers don't thread 8 args. */
 export interface CaptureContext {
+  /** Opt-in local replay metadata, never page bodies or arbitrary tool params. */
+  replay?: Record<string, unknown>;
   /** 'query' or 'search'; captured only for these two ops. */
   tool_name: 'query' | 'search';
   /** Pre-scrub query text. scrubPii runs INSIDE buildEvalCandidateInput when scrub_pii !== false. */
@@ -176,7 +180,15 @@ async function doCaptureEvalCandidate(
 ): Promise<void> {
   try {
     const input = buildEvalCandidateInput(ctx, opts);
-    await engine.logEvalCandidate(input);
+    const id = await engine.logEvalCandidate(input);
+    const path = process.env.GBRAIN_EVAL_REPLAY_LOG;
+    if (path && ctx.replay) {
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      // ponytail: append-only sidecar joined by native candidate ID, no schema fork.
+      appendFileSync(path, JSON.stringify({version: 1, candidate_id: id,
+        captured_at: new Date().toISOString(), ...input, replay: scrubReplay(ctx.replay)}) + '\n', {mode: 0o600});
+      chmodSync(path, 0o600);
+    }
   } catch (err) {
     const reason = classifyCaptureFailure(err);
     try {
@@ -188,6 +200,20 @@ async function doCaptureEvalCandidate(
       console.warn('[eval-capture] secondary failure logging also failed:', failureErr);
     }
   }
+}
+
+/** Defense in depth: same scrubber for alternate queries and textual filters. */
+export function scrubReplay(value: unknown): unknown {
+  if (typeof value === 'string') return scrubPii(value);
+  if (Array.isArray(value)) return value.map(scrubReplay);
+  if (value && typeof value === 'object') return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, scrubReplay(entry)]));
+  return value;
+}
+
+export function replayParams(params: Record<string, unknown>): Record<string, unknown> {
+  const keys = 'limit offset mode source_id types snippet_chars salience recency expand detail lang symbol_kind near_symbol walk_depth since until token_budget use_cache intent_weighting cross_modal embedding_column adaptive_return autocut relational'.split(' ');
+  return Object.fromEntries(keys.filter(key => params[key] !== undefined).map(key => [key, params[key]]));
 }
 
 // v0.42.20.0 — bounded drain + registration (mirrors last-retrieved). The 4th
