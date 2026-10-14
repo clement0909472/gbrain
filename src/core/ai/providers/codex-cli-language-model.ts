@@ -62,6 +62,7 @@ function codexBin(): string {
 
 export function reasoningEffort(model: string): 'medium' | 'high' | 'max' {
   if (model === 'gpt-5.6-luna@max') return 'max';
+  if (model === 'gpt-6.1-sol@medium') return 'medium';
   if (model.endsWith('-sol') || model.endsWith('-terra') || model === 'gpt-6-astra') return 'high';
   return 'medium';
 }
@@ -242,7 +243,7 @@ function runCodex(
       '--sandbox', 'read-only',
       '--skip-git-repo-check',
       '-C', ensureCleanCwd(),
-      '-m', model === 'gpt-5.6-luna@max' ? 'gpt-5.6-luna' : model,
+      '-m', model === 'gpt-5.6-luna@max' ? 'gpt-5.6-luna' : model === 'gpt-6.1-sol@medium' ? 'gpt-6.1-sol' : model,
       '-c', `model_reasoning_effort=${reasoningEffort(model)}`,
       // Local catalog verified 2026-09-15: 872k usable maximum (not 1M input).
       ...(model === 'gpt-5.6-luna@max' ? ['-c', 'model_context_window=872000'] : []),

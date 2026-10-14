@@ -93,6 +93,7 @@ describe('codex-cli recipe registration', () => {
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-terra');
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-6-astra');
     expect(recipe!.touchpoints.chat!.models).toContain('gpt-5.6-luna@max');
+    expect(recipe!.touchpoints.chat!.models).toContain('gpt-6.1-sol@medium');
     expect(recipe!.touchpoints.embedding).toBeUndefined();
     expect(recipe!.touchpoints.expansion!.models).toContain('gpt-5.6-luna');
   });
@@ -316,6 +317,7 @@ describe('codex-cli LanguageModel — context isolation', () => {
     ['gpt-5.6-luna@max', 'gpt-5.6-luna', 'max'],
     ['gpt-5.6-terra', 'gpt-5.6-terra', 'high'],
     ['gpt-5.6-sol', 'gpt-5.6-sol', 'high'],
+    ['gpt-6.1-sol@medium', 'gpt-6.1-sol', 'medium'],
     ['gpt-6-astra', 'gpt-6-astra', 'high'],
   ])('argv routes %s to %s at %s effort with ChatGPT auth', async (modelId, cliModel, effort) => {
     await withStubEnv(async () => {

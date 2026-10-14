@@ -41,7 +41,7 @@ export const codexCli: Recipe = {
     },
     chat: {
       // @max is a local effort profile, not an OpenAI model ID.
-      models: [...MODELS, 'gpt-5.6-luna@max'],
+      models: [...MODELS, 'gpt-5.6-luna@max', 'gpt-6.1-sol@medium'],
       supports_tools: true,
       supports_subagent_loop: true,
       // The CLI handles caching internally and does not surface it via the
