@@ -115,7 +115,7 @@ test('opt-in private trace captures actual CLI envelope without environment cred
   stageResponse('trace-result');const {CodexCliLanguageModel}=await import('../src/core/ai/providers/codex-cli-language-model.ts');
   await new CodexCliLanguageModel('gpt-6.1-sol@medium').doGenerate({prompt:[{role:'system',content:'Exact system'},userMessage('Exact user')]} as LanguageModelV2CallOptions);
  }));
- const path=join(folder,readdirSync(folder)[0]!);const raw=readFileSync(path,'utf8'),trace=JSON.parse(raw);
+ const path=join(folder,readdirSync(folder).find(name=>name.endsWith('.json'))!);const raw=readFileSync(path,'utf8'),trace=JSON.parse(raw);
  expect(trace.stdin).toContain('## System\n\nExact system');expect(trace.stdin).toContain('Exact user');
  expect(trace.argv).toContain('model_reasoning_effort=medium');expect(trace.argv).toContain('--ephemeral');
  expect(raw).not.toContain('synthetic-secret-not-captured');expect(statSync(path).mode&0o777).toBe(0o600);

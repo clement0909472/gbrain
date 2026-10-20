@@ -43,6 +43,7 @@
  * (gateway.toolLoop primarily) use doGenerate.
  */
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -261,10 +262,14 @@ function runCodex(
       if (!directory.isDirectory() || (directory.mode & 0o077) !== 0 || directory.uid !== process.getuid?.()) {
         throw new Error('Codex prompt capture requires an owner-private directory');
       }
-      writeFileSync(join(captureDir, `cli-envelope-${crypto.randomUUID()}.json`), JSON.stringify({
+      const capturePath = join(captureDir, `cli-envelope-${crypto.randomUUID()}.json`);
+      const capture = JSON.stringify({
         version: 1, captured_at: new Date().toISOString(), model, effort: reasoningEffort(model),
+        provider_source_sha256: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex'),
         argv: args, stdin: fullPrompt, scope: 'exact_cli_argv_and_stdin_no_environment_or_credentials',
-      }, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+      }, null, 2) + '\n';
+      writeFileSync(capturePath, capture, { mode: 0o600, flag: 'wx' });
+      writeFileSync(capturePath + '.sha256', createHash('sha256').update(capture).digest('hex') + '\n', { mode: 0o600, flag: 'wx' });
     }
     // Env scrub: guarantee the CLI authenticates via its own OAuth session
     // (subscription), never via an inherited API key. Without this, an
