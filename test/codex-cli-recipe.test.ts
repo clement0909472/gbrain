@@ -18,7 +18,7 @@
  * sibling test files in the same bun-test process.
  */
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { writeFileSync, chmodSync, mkdirSync, rmSync } from 'node:fs';
+import { writeFileSync, chmodSync, mkdirSync, rmSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { LanguageModelV2CallOptions } from '@ai-sdk/provider';
@@ -107,6 +107,23 @@ describe('codex-cli recipe registration', () => {
     const { resolveRecipe } = await import('../src/core/ai/model-resolver.ts');
     expect(resolveRecipe('codex-cli:luna-max').parsed.modelId).toBe('gpt-5.6-luna@max');
   });
+});
+
+test('opt-in private trace captures actual CLI envelope without environment credentials',async()=>{
+ const folder=join(stubDir,'private-trace');mkdirSync(folder,{mode:0o700});
+ await withStubEnv(()=>withEnv({GBRAIN_CODEX_PROMPT_CAPTURE_DIR:folder,OPENAI_API_KEY:'synthetic-secret-not-captured'},async()=>{
+  stageResponse('trace-result');const {CodexCliLanguageModel}=await import('../src/core/ai/providers/codex-cli-language-model.ts');
+  await new CodexCliLanguageModel('gpt-6.1-sol@medium').doGenerate({prompt:[{role:'system',content:'Exact system'},userMessage('Exact user')]} as LanguageModelV2CallOptions);
+ }));
+ const path=join(folder,readdirSync(folder)[0]!);const raw=readFileSync(path,'utf8'),trace=JSON.parse(raw);
+ expect(trace.stdin).toContain('## System\n\nExact system');expect(trace.stdin).toContain('Exact user');
+ expect(trace.argv).toContain('model_reasoning_effort=medium');expect(trace.argv).toContain('--ephemeral');
+ expect(raw).not.toContain('synthetic-secret-not-captured');expect(statSync(path).mode&0o777).toBe(0o600);
+ chmodSync(folder,0o755);
+ await withStubEnv(()=>withEnv({GBRAIN_CODEX_PROMPT_CAPTURE_DIR:folder},async()=>{
+  const {CodexCliLanguageModel}=await import('../src/core/ai/providers/codex-cli-language-model.ts');
+  await expect(new CodexCliLanguageModel('gpt-6.1-sol@medium').doGenerate({prompt:[userMessage('private')]} as LanguageModelV2CallOptions)).rejects.toThrow('owner-private directory');
+ }));
 });
 
 describe('codex-cli LanguageModel — text-only round trip', () => {

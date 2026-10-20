@@ -43,7 +43,7 @@
  * (gateway.toolLoop primarily) use doGenerate.
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
@@ -255,11 +255,23 @@ function runCodex(
       // subagent prompts (context + tool specs) routinely exceed it.
       '-',
     ];
+    const captureDir = process.env.GBRAIN_CODEX_PROMPT_CAPTURE_DIR;
+    if (captureDir) {
+      const directory = statSync(captureDir);
+      if (!directory.isDirectory() || (directory.mode & 0o077) !== 0 || directory.uid !== process.getuid?.()) {
+        throw new Error('Codex prompt capture requires an owner-private directory');
+      }
+      writeFileSync(join(captureDir, `cli-envelope-${crypto.randomUUID()}.json`), JSON.stringify({
+        version: 1, captured_at: new Date().toISOString(), model, effort: reasoningEffort(model),
+        argv: args, stdin: fullPrompt, scope: 'exact_cli_argv_and_stdin_no_environment_or_credentials',
+      }, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    }
     // Env scrub: guarantee the CLI authenticates via its own OAuth session
     // (subscription), never via an inherited API key. Without this, an
     // OPENAI_API_KEY in gbrain's env (the exact setup this recipe is meant
     // to replace) silently flips billing to per-token API usage.
     const env = { ...process.env };
+    delete env.GBRAIN_CODEX_PROMPT_CAPTURE_DIR;
     delete env.OPENAI_API_KEY;
     delete env.OPENAI_BASE_URL;
     delete env.CODEX_API_KEY;
