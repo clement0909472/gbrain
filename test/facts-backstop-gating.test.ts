@@ -71,6 +71,14 @@ async function putAndReadBackstop(slug: string, content: string): Promise<{ queu
 }
 
 describe('put_page facts backstop', () => {
+  test('skipped on already qualified intake', async () => {
+    const result = await putAndReadBackstop(
+      'notes/qualified-fixture',
+      `---\ntype: note\ntitle: Qualified fixture\nintake_revision: fixture-revision\nsource_date: 2026-10-05\n---\n${'A historical statement with unresolved uncertainty. '.repeat(5)}`,
+    );
+    expect(result).toEqual({ skipped: 'qualified_intake' });
+  });
+
   test('skipped on too-short body', async () => {
     const result = await putAndReadBackstop(
       'note/short',

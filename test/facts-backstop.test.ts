@@ -412,6 +412,30 @@ describe('runFactsBackstop — sync.write_through opt-out', () => {
 // directly with a queued 'medium-and-up' payload (reachable at stock master via
 // `gbrain jobs submit facts-absorb --params ...`).
 describe('facts-absorb minion handler honors the queued notabilityFilter (#4870)', () => {
+  test('an already queued job rechecks the qualified intake marker without calling the provider', async () => {
+    const worker = new MinionWorker(engine, { queue: 'test' });
+    await registerBuiltinHandlers(worker, engine, { quiet: true });
+    const page = meetingPage();
+    const frontmatter = { intake_revision: 'fixture-revision', source_date: '2026-10-05', visibility: 'private' };
+    await engine.putPage(page.slug, {
+      type: page.type, title: 'Qualified fixture', compiled_truth: LONG_BODY, frontmatter,
+    }, { sourceId: 'default' });
+    let providerCalls = 0;
+    __setChatTransportForTests(async () => { providerCalls++; throw new Error('Provider must not run'); });
+    const job: MinionJobContext = {
+      id: 1, name: 'facts-absorb',
+      data: { slug: page.slug, sourceId: 'default', source: 'mcp:put_page' },
+      attempts_made: 0, signal: new AbortController().signal, deadlineAtMs: null,
+      shutdownSignal: new AbortController().signal,
+      updateProgress: async () => {}, updateTokens: async () => {}, log: async () => {},
+      isActive: async () => true, readInbox: async () => [],
+    };
+    const result = await worker.getHandler('facts-absorb')!(job) as { skipped?: string };
+    expect(result.skipped).toBe('eligibility_failed:qualified_intake');
+    expect(providerCalls).toBe(0);
+    expect((await engine.getPage(page.slug, { sourceId: 'default' }))?.frontmatter).toEqual(frontmatter);
+  });
+
   test("a queued 'medium-and-up' payload persists high+medium and drops low", async () => {
     const worker = new MinionWorker(engine, { queue: 'test' });
     await registerBuiltinHandlers(worker, engine, { quiet: true });

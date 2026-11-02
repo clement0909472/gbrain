@@ -98,6 +98,12 @@ describe('isFactsBackstopEligible — guards', () => {
     expect(isFactsBackstopEligible(f.slug, f.parsed)).toEqual({ ok: true });
   });
 
+  test('already qualified intake is not extracted again', () => {
+    const f = fixture({ frontmatter: { intake_revision: 'fixture-revision', source_date: '2026-10-05' } });
+    expect(isFactsBackstopEligible(f.slug, f.parsed)).toEqual({ ok: false, reason: 'qualified_intake' });
+    expect(f.parsed.frontmatter.source_date).toBe('2026-10-05');
+  });
+
   test('body < 80 chars → too_short', () => {
     const f = fixture({ body: 'TODO: write meeting notes' });
     expect(isFactsBackstopEligible(f.slug, f.parsed)).toEqual({ ok: false, reason: 'too_short' });

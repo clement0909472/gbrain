@@ -86,6 +86,10 @@ export function isFactsBackstopEligible(
   if (parsed.frontmatter && parsed.frontmatter.dream_generated === true) {
     return { ok: false, reason: 'dream_generated' };
   }
+  // Qualified intake already carries reviewed dates and provenance; do not reinterpret it.
+  if (typeof parsed.frontmatter?.intake_revision === 'string' && parsed.frontmatter.intake_revision.length > 0) {
+    return { ok: false, reason: 'qualified_intake' };
+  }
 
   const body = (parsed.compiled_truth ?? '').trim();
   if (body.length < MIN_BODY_CHARS) return { ok: false, reason: 'too_short' };
