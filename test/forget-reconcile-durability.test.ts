@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PGLiteEngine } from '../src/core/pglite-engine.ts';
@@ -100,6 +100,21 @@ async function expectForgetHeld(id: number): Promise<void> {
 }
 
 describe('forget survives the extract_facts reconcile (#4696)', () => {
+  test.each([0o600, 0o640, 0o664])('fence withdrawal preserves mode %i under umask022', async (mode) => {
+    const previousUmask = process.umask(0o022);
+    try {
+      const id = await seed();
+      const filePath = join(brainDir, `${SLUG}.md`);
+      chmodSync(filePath, mode);
+      expect(await forgetFactInFence(engine, id, { reason: 'mode preservation' }))
+        .toMatchObject({ ok: true, path: 'fence' });
+      expect(statSync(filePath).mode & 0o7777).toBe(mode);
+      await expectForgetHeld(id);
+    } finally {
+      process.umask(previousUmask);
+    }
+  });
+
   test('fence path: the DB body is struck, so the reconcile is a no-op', async () => {
     const id = await seed();
     const r = await forgetFactInFence(engine, id, { reason: 'test' });

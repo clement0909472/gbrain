@@ -10,7 +10,7 @@
  * A Markdown-only clone does not carry DB-only withdrawal records.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, statSync, chmodSync } from 'node:fs';
 
 import type { BrainEngine } from '../engine.ts';
 import { withPageLock } from '../page-lock.ts';
@@ -228,7 +228,9 @@ export async function forgetFactInFence(
 
       // Atomic .tmp + parse-validate + rename.
       assertSourceFilesystemActive();
-      writeFileSync(tmpPath, newBody, 'utf-8');
+      const mode = statSync(filePath).mode & 0o7777;
+      writeFileSync(tmpPath, newBody, { encoding: 'utf-8', mode });
+      chmodSync(tmpPath, mode);
       const tmpBody = readFileSync(tmpPath, 'utf-8');
       const validate = parseFactsFence(tmpBody);
       if (validate.warnings.length > 0) {
