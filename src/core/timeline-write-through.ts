@@ -45,9 +45,9 @@ import { bodyWriteChunkVersion } from './search/safe-chunks.ts';
  * eventual-consistency contract as the facts fence lane.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { atomicWriteFileSync } from './atomic-write.ts';
 import type { BrainEngine } from './engine.ts';
 import { sanitizeForJsonb } from './batch-rows.ts';
 import {
@@ -391,21 +391,8 @@ export async function writeTimelineEntryThrough(
           return { handled: false, skipped: 'splice_not_roundtrippable' };
         }
 
-        // Atomic write: unique temp sibling + rename (writePageThrough's
-        // convention). Clean the temp up on failure — never leak a stray.
-        const tmpPath = `${filePath}.tmp.${process.pid}.${randomBytes(4).toString('hex')}`;
-        try {
-          assertSourceFilesystemActive();
-          writeFileSync(tmpPath, afterText, 'utf8');
-          renameSync(tmpPath, filePath);
-        } catch (writeErr) {
-          try {
-            if (existsSync(tmpPath)) unlinkSync(tmpPath);
-          } catch {
-            // best-effort cleanup; surface the original write error below
-          }
-          throw writeErr;
-        }
+        assertSourceFilesystemActive();
+        atomicWriteFileSync(filePath, afterText, { verify: () => assertSourceFilesystemActive() });
         onDisk = rendered.canonical;
 
         const newTimeline = sanitizeForJsonb(

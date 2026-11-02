@@ -35,7 +35,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, appendFileSync, statSync, chmodSync } from 'node:fs';
 import { dirname, isAbsolute, relative } from 'node:path';
 
 import type { BrainEngine, NewFact, FactVisibility, FactKind } from '../engine.ts';
@@ -455,7 +455,10 @@ export async function writeFactsToFence(
 
       // 3. Atomic write: .tmp first, then parse-validate, then rename.
       assertSourceFilesystemActive();
-      writeFileSync(tmpPath, body, 'utf-8');
+      const mode = existsSync(filePath) ? statSync(filePath).mode & 0o7777 : null;
+      writeFileSync(tmpPath, body, { encoding: 'utf-8', mode: mode ?? 0o666 });
+      // A replacement inode must retain the target's mode, including bits masked by umask.
+      if (mode !== null) chmodSync(tmpPath, mode);
 
       // 4. Parse-before-rename: re-read the .tmp content and verify the
       //    fence is well-formed. Anything malformed → leave .tmp in

@@ -312,6 +312,36 @@ function fenceFact(fact: string): FenceInputFact {
 }
 
 describe('wave-C review: splice-under-lock, never whole-file regeneration', () => {
+  for (const mode of [0o600, 0o640, 0o664]) {
+    for (const writer of ['facts', 'timeline'] as const) {
+      test(`${writer} preserves file mode ${mode.toString(8)} across replacement`, async () => {
+        await engine.setConfig('sync.repo_path', brainDir);
+        const slug = `notes/mode-${writer}-${mode}`;
+        const filePath = await seedPage(slug);
+        fs.chmodSync(filePath, mode);
+        const previousUmask = process.umask(0o022);
+        try {
+          if (writer === 'facts') {
+            const result = await writeFactsToFence(
+              engine,
+              { sourceId: 'default', localPath: brainDir, slug, resolutionSource: 'exact_page' },
+              [fenceFact('Fixture event dated 2017')],
+            );
+            expect(result.inserted).toBe(1);
+          } else {
+            const result = await writeTimelineEntryThrough(engine, slug, 'default', {
+              date: '2026-07-15', summary: 'Fixture milestone', source: 'manual',
+            });
+            expect(result.file?.written).toBe(true);
+          }
+          expect(fs.statSync(filePath).mode & 0o7777).toBe(mode);
+        } finally {
+          process.umask(previousUmask);
+        }
+      });
+    }
+  }
+
   test('BLOCKER: file-only fence lines survive a timeline add', async () => {
     await engine.setConfig('sync.repo_path', brainDir);
     const slug = 'people/fence-survivor';
